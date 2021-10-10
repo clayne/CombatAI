@@ -31,7 +31,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STR
 # ---- Project ----
 
 project(
-	ExampleProject
+	CombatAI
 	VERSION 1.0.0
 	LANGUAGES CXX
 )
@@ -79,22 +79,44 @@ set(Boost_USE_STATIC_LIBS ON)
 
 # ---- Dependencies ----
 
-add_subdirectory("extern/CommonLibSSE" CommonLibSSE)
+add_subdirectory($ENV{CommonLibSSE} $ENV{CommonLibSSE}/build)
 
 find_package(spdlog REQUIRED CONFIG)
 
 # ---- Add source files ----
 
-set(SOURCES
-	src/main.cpp
+set(headers
 	src/PCH.h
+  src/CombatBehaviorConditions.h
+  src/CombatBehaviorTrees.h
+  src/CombatBehaviorNodes.h
+  src/CombatBehaviorNodesGeneral.h
+  src/CombatBehaviorNodesBlock.h
+  src/CombatBehaviorNodesMelee.h
+  src/UselessFenixUtils.h
+  src/CombatAIController.h
+  src/Hooks.h
+)
+
+set(sources
+	src/main.cpp
+  src/CombatBehaviorConditions.cpp
+  src/CombatBehaviorTrees.cpp
+  src/CombatBehaviorNodes.cpp
+  src/CombatBehaviorNodesGeneral.cpp
+  src/CombatBehaviorNodesBlock.cpp
+  src/CombatBehaviorNodesMelee.cpp
+  src/UselessFenixUtils.cpp
+  src/CombatAIController.cpp
+  src/Hooks.cpp
 )
 
 source_group(
 	TREE
 		${CMAKE_CURRENT_SOURCE_DIR}
 	FILES
-		${SOURCES}
+		${headers}
+		${sources}
 )
 
 source_group(
@@ -109,7 +131,8 @@ source_group(
 add_library(
 	${PROJECT_NAME}
 	SHARED
-	${SOURCES}
+	${headers}
+	${sources}
 	${CMAKE_CURRENT_BINARY_DIR}/include/Version.h
 	${CMAKE_CURRENT_BINARY_DIR}/version.rc
 	.clang-format

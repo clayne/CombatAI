@@ -45,11 +45,15 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 	return true;
 }
 
+#include"Hooks.h"
+
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
 	logger::info("loaded");
 
 	SKSE::Init(a_skse);
+
+	apply_hooks();
 
 	return true;
 }
