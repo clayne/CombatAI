@@ -136,7 +136,7 @@ float get_Attack_prop(RE::Actor* me, RE::Actor* he)
 	if (is_attacking(he))
 		return 0.0f;
 
-	return 0.2f;
+	return 0.5f;
 }
 
 float get_SpecialAttack_prop(RE::Actor* me, RE::Actor* he)

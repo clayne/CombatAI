@@ -14,5 +14,5 @@ DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorSpecialAttack, 48155
 // ans in rbx
 NodeMeleeContext* NodeMeleeContext::createnew()
 {
-	return createnewImpl();
+	return (*createnewImpl)();
 }

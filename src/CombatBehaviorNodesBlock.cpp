@@ -15,5 +15,5 @@ DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorBlockAttack, 46648);
 // ans in rbx
 NodeBlockContext* NodeBlockContext::createnew()
 {
-	return createnewImpl();
+	return (*createnewImpl)();
 }

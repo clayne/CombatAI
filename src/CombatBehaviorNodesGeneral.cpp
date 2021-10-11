@@ -14,5 +14,5 @@ DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorRepeat, 32409);
 // ans in rbx
 CombatBehaviorTreeNodeObject1_CombatBehaviorIdle_float_* CombatBehaviorTreeNodeObject1_CombatBehaviorIdle_float_::createnew()
 {
-	return createnewImpl();
+	return (*createnewImpl)();
 }

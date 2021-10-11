@@ -38,7 +38,7 @@ CombatBehaviorTreeNode* tmp_wrap_to_randomnode(const char* name, TreeCtors_extra
 	return cont[0]->parent;
 }
 
-void CombatBehaviorTreeBlock__ctor(void* self)
+extern "C" DLLEXPORT void SKSEAPI CombatBehaviorTreeBlock__ctor(void* self)
 {
 	NodeArray ActionTypes, BlockTypes;
 	TreeCtors_extradata extradata;
@@ -66,11 +66,11 @@ void CombatBehaviorTreeBlock__ctor(void* self)
 		->add_FirstChildren(createnew_withname(NodeRepeat::createnew(), "Block Repeat"))
 		->add_FirstChildren(createnew_withname(NodeSelector::createnew(), "Block Selector"))
 		->init_childrens_parents(ActionTypes);
-
+	
 	CombatBehaviorTree__init_nodes(self, node_BlockContext);
 }
 
-void CombatBehaviorTreeMelee__ctor(void* self)
+extern "C" DLLEXPORT void SKSEAPI CombatBehaviorTreeMelee__ctor(void* self)
 {
 	NodeArray ActionTypes;
 	TreeCtors_extradata extradata;
