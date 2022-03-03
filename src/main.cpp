@@ -1,9 +1,6 @@
-#include <spdlog/sinks/basic_file_sink.h>
-#define FDEBUG
-
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a_skse, SKSE::PluginInfo* a_info)
 {
-#ifndef FDEBUG
+#ifndef DEBUG
 	auto sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
 #else
 	auto path = logger::log_directory();
@@ -18,7 +15,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 
 	auto log = std::make_shared<spdlog::logger>("global log"s, std::move(sink));
 
-#ifndef FDEBUG
+#ifndef DEBUG
 	log->set_level(spdlog::level::trace);
 #else
 	log->set_level(spdlog::level::info);

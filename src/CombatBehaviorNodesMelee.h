@@ -12,7 +12,7 @@ class CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextMelee_ : publ
 public:
 	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextBlock_;
 
-	void destroy(char need_freeself) override;
+	void* destroy(char need_freeself) override;
 	void pop(AI_Tree_Control* control) override;
 	void* SaveGame(AI_Tree_Control* control, RE::BGSSaveGameBuffer* buffer) override;
 	void* LoadGame(AI_Tree_Control* control, RE::BGSLoadGameBuffer* buffer) override;
@@ -30,7 +30,7 @@ class CombatBehaviorTreeCreateContextNode2_CombatBehaviorContextMelee_CombatBeha
 public:
 	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNode2_CombatBehaviorContextMelee_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorEquipContext_NiPointer_CombatInventoryItem__const_____ptr64____cdecl_CombatBehaviorEquipContext_____void_const___ptr64____CombatBehaviorContextMelee__ATTACK_TYPE_;
 
-	void destroy(char need_freeself) override;
+	void* destroy(char need_freeself) override;
 	AI_Tree_Control* act(AI_Tree_Control* control) override;
 
 	static CombatBehaviorTreeCreateContextNode2_CombatBehaviorContextMelee_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorEquipContext_NiPointer_CombatInventoryItem__const_____ptr64____cdecl_CombatBehaviorEquipContext_____void_const___ptr64____CombatBehaviorContextMelee__ATTACK_TYPE_* createnew();

@@ -1,5 +1,6 @@
 #pragma once
 #include "CombatBehaviorNodesGeneral.h"
 
-extern "C" DLLEXPORT void SKSEAPI CombatBehaviorTreeBlock__ctor(void* self);
-extern "C" DLLEXPORT void SKSEAPI CombatBehaviorTreeMelee__ctor(void* self);
+void CombatBehaviorTreeBlock__ctor(void* self);
+void CombatBehaviorTreeMelee__ctor(void* self);
+void CombatBehaviorTreeCloseMovement__ctor(void* self);

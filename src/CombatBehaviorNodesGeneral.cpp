@@ -1,6 +1,7 @@
 #include "CombatBehaviorNodesGeneral.h"
 
 DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorFallbackSelector_NextChildSelector__, 32407);
+DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorChildSelector_ConditionalChildSelector__, 46756);
 DEFINE_CombatBehaviorTreeNodeObject_createnew(CombatBehaviorRepeat, 32409);
 
 // 1407D4620 (46640)

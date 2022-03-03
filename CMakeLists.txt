@@ -93,9 +93,12 @@ set(headers
   src/CombatBehaviorNodesGeneral.h
   src/CombatBehaviorNodesBlock.h
   src/CombatBehaviorNodesMelee.h
+  src/CombatBehaviorNodesMovement.h
   src/UselessFenixUtils.h
   src/CombatAIController.h
   src/Hooks.h
+  src/DebugAPI.h
+  src/Util.h
 )
 
 set(sources
@@ -106,9 +109,12 @@ set(sources
   src/CombatBehaviorNodesGeneral.cpp
   src/CombatBehaviorNodesBlock.cpp
   src/CombatBehaviorNodesMelee.cpp
+  src/CombatBehaviorNodesMovement.cpp
   src/UselessFenixUtils.cpp
   src/CombatAIController.cpp
   src/Hooks.cpp
+  src/DebugAPI.cpp
+  src/Util.cpp
 )
 
 source_group(
