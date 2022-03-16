@@ -1,20 +1,24 @@
 #include "UselessFenixUtils.h"
 #include "DebugAPI.h"
 #include <CombatAIController.h>
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include "CombatBehaviorConditions.h"
 
 using PA = Utils::PolarAngle;
 
 bool has_manyStamina(RE::Actor* a)
 {
 	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
-	auto total = a->GetBaseActorValue(RE::ActorValue::kStamina);
+	auto total = get_total_av(a, RE::ActorValue::kStamina);
 	return total >= 150.0f && total * 0.75 <= cur;
 }
 
 bool has_enoughStamina(RE::Actor* a)
 {
 	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
-	auto total = a->GetBaseActorValue(RE::ActorValue::kStamina);
+	auto total = get_total_av(a, RE::ActorValue::kStamina);
 	return total >= 25.0f && total * 0.25 <= cur;
 }
 
@@ -26,18 +30,8 @@ bool is_powerattacking(RE::Actor* a)
 bool has_stamina(RE::Actor* a)
 {
 	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
-	auto total = a->GetBaseActorValue(RE::ActorValue::kStamina);
+	auto total = get_total_av(a, RE::ActorValue::kStamina);
 	return total <= 20.0f || cur >= 15.0f;
-}
-
-float get_stamina_pers(RE::Actor* a)
-{
-	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
-	auto total = a->GetBaseActorValue(RE::ActorValue::kStamina);
-	if (total <= 0.00001f)
-		return 1.0f;
-	else
-		return cur / total;
 }
 
 bool is_staggered(RE::Actor* a)
@@ -89,64 +83,10 @@ static float get_angle_he_me(RE::Actor* me, RE::Actor* he, RE::BGSAttackData* at
 	return angle;
 }
 
-float get_OffensiveBash_prop(RE::Actor* me, RE::Actor* he)
-{
-	if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
-		return 0.1f;
-
-	if (has_manyStamina(me) && !is_staggered(he) && !is_attacking(he))
-		return 1.0f;
-
-	return 0.0f;
-}
-
-float get_BashAfterAttack_prop(RE::Actor* me, RE::Actor*)
-{
-	if (has_manyStamina(me))
-		return 1.0f;
-	else
-		return 0.0f;
-}
-
-float get_DefensiveBash_prop(RE::Actor* me, RE::Actor* he)
-{
-	if (has_enoughStamina(me) && is_powerattacking(he) && !is_staggered(he))
-		return 1.0f;
-	else
-		return 0.0f;
-}
-
-bool should_interruptBlock(RE::Actor* a)
-{
-	return is_powerattacking(a);
-}
-
 static void interruptattack(RE::Actor* me)
 {
-	//if (is_juststarted_attacking(me) && !is_blocking(me) && !is_powerattacking(me))
-		me->NotifyAnimationGraph("attackStop");
-}
-
-bool should_interruptAttack(RE::Actor* me)
-{
-	auto he = me->currentCombatTarget.get().get();
-	if (!he)
-		return false;
-
-	if (is_juststarted_attacking(he)) {
-		interruptattack(me);
-		return true;
-	}
-
-	return false;
-}
-
-float get_BlockType_prop(RE::Actor* me, RE::Actor*)
-{
-	if (!has_stamina(me))
-		return 0.0f;
-
-	return 1.0f;
+	me->NotifyAnimationGraph("attackStop");
+	me->NotifyAnimationGraph("blockStop");
 }
 
 bool is_AttackEnded(RE::Actor* a)
@@ -155,50 +95,47 @@ bool is_AttackEnded(RE::Actor* a)
 	return state != RE::ATTACK_STATE_ENUM::kDraw && state != RE::ATTACK_STATE_ENUM::kSwing && state != RE::ATTACK_STATE_ENUM::kNone;
 }
 
-static float angleKernel(float x) {
-	const float M = 1.0f / 3.0f;
-	if (x < M) {
-		return 0.8f * 9.0f * x * x + 0.1f;
-	} else {
-		auto k = (x - M) / (1.0f - M);
-		if (k > 1.0)
-			k = 1.0f;
-		return (1.0f - 0.9f) * k + 0.9f;
-	}
+bool has_hp(RE::Actor* a)
+{
+	auto cur = a->GetActorValue(RE::ActorValue::kHealth);
+	auto total = get_total_av(a, RE::ActorValue::kHealth);
+	return total <= 20.0f || cur >= 15.0f;
 }
 
-float get_Attack_prop(RE::Actor* me, RE::Actor* he)
+bool has_enough_hp(RE::Actor* a)
+{
+	auto cur = a->GetActorValue(RE::ActorValue::kHealth);
+	auto total = get_total_av(a, RE::ActorValue::kHealth);
+	return total >= 25.0f && total * 0.25 <= cur;
+}
+
+float getav_pers(RE::Actor* a, RE::ActorValue av)
+{
+	auto cur = a->GetActorValue(av);
+	auto total = get_total_av(a, av);
+	if (total < 0.0001f)
+		total = 0.0001f;
+	if (cur < 0.0f)
+		cur = 0.0f;
+	return cur / total;
+}
+
+bool want_attack_light(RE::Actor* me, RE::Actor* he)
 {
 	if (!has_stamina(me))
-		return 0.0f;
+		return false;
 
-	if (is_staggered(he) || is_AttackEnded(he))
-		return 1.0f;
+	if (is_staggered(he) || is_AttackEnded(he) || !has_enough_hp(he))
+		return true;
 
 	if (is_attacking(he))
-		return 0.0f;
+		return false;
 
-	auto angle = abs(get_angle_he_me(me, he, Utils::get_attackData(he)));
+	if (!has_enough_hp(me))
+		return false;
 
-	if (is_blocking(he) && angle < 60.0f)
-		return 0.1f;
-
-	auto angle_factor = angleKernel(angle / 180.0f);
-
-	auto pers = get_stamina_pers(me);
-	auto stamina_factor = pers * pers;
-
-	return stamina_factor * angle_factor;
-}
-
-float get_SpecialAttack_prop(RE::Actor* me, RE::Actor* he)
-{
-	return get_Attack_prop(me, he);
-}
-
-float get_Dummy_prop(RE::Actor* , RE::Actor* )
-{
-	return 0.0f;
+	auto offencive = (getav_pers(me, RE::ActorValue::kStamina) + 2 * getav_pers(me, RE::ActorValue::kHealth)) / 3.0f;
+	return offencive >= 0.25f;
 }
 
 float get_Reach(RE::Actor* a)
@@ -206,15 +143,29 @@ float get_Reach(RE::Actor* a)
 	return _generic_foo<37588, float, RE::Actor*>(a);
 }
 
-float get_dist(RE::Actor* a, RE::Actor* b)
+float get_dist2(RE::Actor* a, RE::Actor* b)
 {
 	return _generic_foo<46058, float, RE::Actor*, RE::Actor*>(a, b);
+}
+
+float get_combat_reach(RE::Actor* a)
+{
+	return get_Reach(a) + 30.0f;
+}
+
+bool Character__is_moving_from(RE::Actor* a, RE::NiPoint3* p)
+{
+	return _generic_foo<46062, bool, RE::Actor*, RE::NiPoint3*>(a, p);  // SkyrimSE.exe+7BE7E0
+}
+
+void Actor__SetIsGhost_1405D25E0(RE::Actor* a, bool val) {
+	return _generic_foo<36287, void, RE::Actor*, bool>(a, val);  // SkyrimSE.exe+5D25E0
 }
 
 namespace Movement
 {
 	using PA = Utils::PolarAngle;
-	const float default_angle = 90.0f;
+	const float default_angle = 50.0f;
 
 	enum class CircleDirestions
 	{
@@ -233,141 +184,280 @@ namespace Movement
 		bool reflected;
 	};
 
+	static std::set<uint32_t> buffed = std::set<uint32_t>();
+	std::mutex buffed_mutex;
+
+	template <int time = 100, float amount = 300.0f>
+	void buff_speed(RE::Actor* a)
+	{
+		std::thread t([=]() {
+			buffed_mutex.lock();
+			if (buffed.count(a->formID)) {
+				buffed_mutex.unlock();
+				return;
+			}
+			buffed.insert(a->formID);
+			damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, amount, nullptr);
+			//Actor__SetIsGhost_1405D25E0(a, true);
+
+			buffed_mutex.unlock();
+			std::this_thread::sleep_for(std::chrono::milliseconds(time));
+			buffed_mutex.lock();
+
+			//Actor__SetIsGhost_1405D25E0(a, false);
+			damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, -amount, nullptr);
+			buffed.erase(a->formID);
+			buffed_mutex.unlock();
+		});
+		t.detach();
+	}
+	
+	RE::NiPoint3 rotateZ(float r, const RE::NiPoint3& rotation)
+	{
+		RE::NiPoint3 ans;
+
+		float gamma = -rotation.z + 3.1415926f / 2;
+		float cos_g = cos(gamma);
+		float sin_g = sin(gamma);
+
+		ans.x = r * cos_g;
+		ans.y = r * sin_g;
+		ans.z = 0.0f;
+
+		return ans;
+	}
+
+	template <glm::vec4 color = RED>
+	void draw_ray(RE::Actor* attacker, float r, PA a)
+	{
+		RE::NiPoint3 hit_pos, rotation;
+		hit_pos = attacker->data.location;
+		rotation = attacker->data.angle;
+		PA z = rotation.z * 180.0f / PI;
+		z = z.add(a);
+		rotation.z = z * PI / 180.0f;
+		hit_pos += rotateZ(r, rotation);
+		draw_line<color>(attacker->data.location, hit_pos);
+	}
+
+	template <glm::vec4 color = RED>
+	void draw_ray_point(RE::Actor* attacker, float r, PA a)
+	{
+		RE::NiPoint3 hit_pos, rotation;
+		hit_pos = attacker->data.location;
+		rotation = attacker->data.angle;
+		PA z = rotation.z * 180.0f / PI;
+		z = z.add(a);
+		rotation.z = z * PI / 180.0f;
+		hit_pos += rotateZ(r, rotation);
+		draw_line<color>(hit_pos + RE::NiPoint3{0.0f, 0.0f, 1.0f}, hit_pos);
+	}
+
+	template <glm::vec4 color = RED>
+	void draw_attack(RE::Actor* attacker, float r, float angle)
+	{
+		draw_ray<color>(attacker, r, 0);
+		draw_ray<color>(attacker, r, angle);
+		draw_ray<color>(attacker, r, 360.0f - angle);
+
+		draw_circleZ<color>(attacker->data.location, r);
+	}
+
 	bool isInDanger(RE::Actor* me, AttackInfo* info = nullptr)
 	{
 		auto he = me->currentCombatTarget.get().get();
-		if (!he)
+		if (!he || (is_blocking(he) || !is_attacking(he)))
 			return false;
 
-		auto R = get_Reach(he) * 1.5f + 28.0f;
-		auto r = get_dist(me, he);
+		auto R = get_combat_reach(he);
+		auto r2 = get_dist2(me, he);
 
 		RE::BGSAttackData* attackdata = Utils::get_attackData(he);
 		auto angle = get_angle_he_me(me, he, attackdata);
 
-		float attackAngle = attackdata ? attackdata->data.strikeAngle : 0.0f;
-
-		auto attackState = he->GetAttackState();
-		if (attackState != RE::ATTACK_STATE_ENUM::kSwing && attackState != RE::ATTACK_STATE_ENUM::kDraw)
-			return false;
-
-		if (abs(angle) > attackAngle && !is_powerattacking(he))
-			return false;
-
-		if (r > R * R && !is_powerattacking(he))
-			return false;
+		float attackAngle = attackdata ? attackdata->data.strikeAngle : 50.0f;
 
 		if (info) {
 			info->R = R;
-			info->r = sqrt(r);
+			info->r = sqrt(r2);
 			info->reflected = angle < 0.0f;
 			info->me = abs(angle);
 			info->attackAngle = attackAngle;
 		}
 
+		auto attackState = he->GetAttackState();
+		if (attackState != RE::ATTACK_STATE_ENUM::kSwing && attackState != RE::ATTACK_STATE_ENUM::kDraw)
+			return false;
+
+		if (abs(angle) > attackAngle)
+			return false;
+
+		if (r2 > R * R && (!is_powerattacking(he) || r2 > 500.0f * 500.0f))
+			return false;
+
+#ifdef DEBUG
+		//draw_attack(he, R, attackAngle);
+		//draw_line(me->data.location, he->data.location);
+#endif  // DEBUG
+
 		return true;
 	}
-
-	static float _get_circle_angle(float attackAngle, float me, bool notreflected)
-	{
-		float angle = attackAngle - me;
-		if (notreflected)
-			angle = -angle;
-		return angle * 1.2f;
-	}
-
-	static CircleDirestions chose_moving_direction(const AttackInfo* const info, RE::Actor* a, bool isindanger)
-	{
-		if (!is_AttackEnded(a) && is_attacking(a) && !is_juststarted_attacking(a))
-			return CircleDirestions::None;
-
-		auto he = a->currentCombatTarget.get().get();
-		if (!he)
-			return CircleDirestions::None;
-
-		const float BACK_SPEED_MULT = 1.0f;
-		const float CIRCLE_SPEED_MULT = 1.0f;
-		const float DIST_BORDER = 100.0f;
-
-		const float r = info->r;
-		const float R = info->R;
-		const PA me = info->me;
-		float back_dist = (R - r) * BACK_SPEED_MULT;
-		float circle_dist = PA::dist(r, me, info->attackAngle) * CIRCLE_SPEED_MULT;
-
-		RE::NiPoint3 he_me = a->GetPosition() - he->GetPosition(), new_pos;
-		auto he_me_len = he_me.Unitize();
-
-		if (!is_powerattacking(he) &&
-			(isindanger && (back_dist < circle_dist && back_dist <= DIST_BORDER) ||
-				!isindanger && (!has_stamina(a) && (info->me > 90.0f || info->r > 300.0f)))) {
-			auto walk_distance = (isindanger ? info->R * 1.5f : 500.0f) + 120.0f - he_me_len;
-			new_pos = he_me * walk_distance + a->GetPosition();
-			if (check_collisions(a, &a->data.location, &new_pos)) {
-				return CircleDirestions::Back;
-			}
-		}
-
-		if (info->r < 120.0f ||
-			(isindanger || is_powerattacking(he)) && circle_dist <= DIST_BORDER ||
-			isindanger && !has_stamina(a) ||
-			!isindanger && info->me < 90.0f && has_stamina(a) && is_blocking(he)) {
-			auto angle = _get_circle_angle(isindanger ? default_angle : info->attackAngle, info->me, !info->reflected) * 180.0f / PI;
-			auto angle_sin = sin(angle);
-			auto angle_cos = cos(angle);
-			he_me *= fmaxf(120.0f, he_me_len);
-			new_pos.x = he_me.x * angle_cos - he_me.y * angle_sin + he->GetPositionX();
-			new_pos.y = he_me.y * angle_cos + he_me.x * angle_sin + he->GetPositionY();
-			new_pos.z = he_me.z + he->GetPositionZ();
-
-			if (check_collisions(a, &a->data.location, &new_pos)) {
-				return info->reflected ? CircleDirestions::Left : CircleDirestions::Right;
-			}
-		}
-
-		return CircleDirestions::None;
-	}
-
+	
 	namespace Circle
 	{
+		static float _get_circle_angle(float attackAngle, float angle, bool notreflected)
+		{
+			angle = fmaxf(attackAngle + angle + attackAngle * 0.2f, 20.0f);
+			if (notreflected)
+				angle = -angle;
+			return angle;
+		}
+
+		void rotate(const RE::NiPoint3& me, const RE::NiPoint3& he, RE::NiPoint3& new_pos, float angle)
+		{
+			auto he_me = me - he;
+			auto angle_sin = sin(angle);
+			auto angle_cos = cos(angle);
+			new_pos.x = he_me.x * angle_cos - he_me.y * angle_sin + he.x;
+			new_pos.y = he_me.y * angle_cos + he_me.x * angle_sin + he.y;
+			new_pos.z = he_me.z + he.z;
+		}
+
+		bool check_angle(RE::Actor* me, RE::Actor* he, const AttackInfo& info, float me_angle)
+		{
+			auto angle = _get_circle_angle(info.attackAngle, me_angle, !info.reflected) / 180.0f * PI;
+
+			RE::NiPoint3 new_pos;
+			rotate(me->GetPosition(), he->GetPosition(), new_pos, angle);
+
+			bool ans = check_collisions(me, &me->data.location, &new_pos);
+
+#ifdef DEBUG
+			//draw_line<GRN, 1000>(me->GetPosition(), new_pos);
+#endif  // DEBUG
+
+			return ans;
+		}
+
+		float get_CircleAngle(const AttackInfo& info, CircleDirestions dir)
+		{
+			auto me_angle = info.me;
+			if (info.reflected == (dir == CircleDirestions::Left))
+				me_angle = -info.me;
+			else
+				me_angle = info.me;
+			return _get_circle_angle(info.attackAngle, me_angle, dir == CircleDirestions::Right);
+		}
+
+		static CircleDirestions choose_moving_direction_circle(const AttackInfo* const info, RE::Actor* a)
+		{
+			auto he = a->currentCombatTarget.get().get();
+			if (!he)
+				return CircleDirestions::None;
+
+			const float DIST_BORDER = 100.0f;
+
+			const float r = info->r;
+			const float me = info->me;
+
+			if (PA::dist(r, info->attackAngle - me) <= DIST_BORDER && check_angle(a, he, *info, -me)) {
+				return info->reflected ? CircleDirestions::Left : CircleDirestions::Right;
+			} else if (PA::dist(r, info->attackAngle + me) <= DIST_BORDER && check_angle(a, he, *info, me)) {
+				return info->reflected ? CircleDirestions::Right : CircleDirestions::Left;
+			}
+
+			return CircleDirestions::None;
+		}
+
 		float get_CircleAngle(RE::Character* me)
 		{
 			AttackInfo info;
-			if (!isInDanger(me, &info))
-				return rand() % 2 == 0 ? default_angle : -default_angle;
+			if (!isInDanger(me, &info)) {
+				bool left;
+				if (is_blocking(CombatAI__get_he())) {
+					left = info.reflected;
+				} else
+					left = rand() % 2 == 0;
+				return left ? default_angle : -default_angle;
+			}
 
-			auto dir = chose_moving_direction(&info, me, true);
+			auto dir = choose_moving_direction_circle(&info, me);
 			if (dir != CircleDirestions::Left && dir != CircleDirestions::Right)
 				return default_angle;
 
-			return _get_circle_angle(info.attackAngle, info.me, dir == CircleDirestions::Right);
+			return get_CircleAngle(info, dir);
 		}
 
-		uint32_t should_Circle(RE::Character* me)
+		template <bool change = false>
+		uint32_t should_danger_alwaysDanger(RE::Character* me, RE::Actor*, const AttackInfo& info)
 		{
-			AttackInfo info;
-
-			auto indanger = isInDanger(me, &info);
-
-			auto dir = chose_moving_direction(&info, me, indanger);
+			auto dir = choose_moving_direction_circle(&info, me);
 			if (dir == CircleDirestions::Left || dir == CircleDirestions::Right) {
-				interruptattack(me);
-				return 1;
+				if (change) {
+					interruptattack(me);
+					buff_speed<300, 500.0f>(me);
+
+#ifdef DEBUG
+					draw_line<BLU, 1000>(me->GetPosition(), 3);
+#endif  // DEBUG
+
+				}
+
+				return true;
 			}
 
-			return 0;
+			return false;
+		}
+
+		uint32_t should_danger(RE::Character* me)
+		{
+			if (is_powerattacking(me) && !is_juststarted_attacking(me))
+				return false;
+
+			auto he = me->currentCombatTarget.get().get();
+			if (!he)
+				return false;
+
+			AttackInfo info;
+			if (!isInDanger(me, &info))
+				return false;
+
+			return should_danger_alwaysDanger<true>(me, he, info);
+		}
+
+		uint32_t should_normal(RE::Character* me)
+		{
+			auto he = me->currentCombatTarget.get().get();
+			if (!he)
+				return false;
+
+			bool isblocking = is_blocking(he);
+
+			if (isblocking && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
+				return true;
+
+			if (!isblocking && rand() % 100 > 70)
+				return true;
+
+			return false;
 		}
 	}
 
 	namespace Fallback
 	{
+		float get_FallbackDistance(const AttackInfo& info)
+		{
+			// info.r subs after
+			return fmaxf(info.R - 137.76f, 60.0f);
+		}
+	
 		float get_FallbackDistance(RE::Character* me)
 		{
 			AttackInfo info;
 			if (!isInDanger(me, &info))
-				return 500.0f;
+				return 0.0f;
 
-			return info.R * 1.5f;
+			return get_FallbackDistance(info);
 		}
 
 		float get_FallbackSpeed(RE::Character*)
@@ -375,15 +465,63 @@ namespace Movement
 			return 2.0f;
 		}
 
-		uint32_t should_Fallback(RE::Character* me) {
-			AttackInfo info;
-			auto indanger = isInDanger(me, &info);
-			if (chose_moving_direction(&info, me, indanger) == CircleDirestions::Back) {
-				interruptattack(me);
-				return 1;
+		template <bool change = false>
+		uint32_t should_alwaysDanger(RE::Character* a, RE::Actor* he, const AttackInfo& info)
+		{
+			const float DIST_BORDER = 60.0f;
+
+			const float r = info.r;
+			const float R = info.R;
+			const PA me = info.me;
+			float back_dist = R - r;
+
+#ifdef DEBUG
+			//draw_attack<GRN>(he, R - DIST_BORDER, 50.0f);
+#endif  // DEBUG
+
+			if (!is_powerattacking(he) && back_dist <= DIST_BORDER) {
+				RE::NiPoint3 he_me = a->GetPosition() - he->GetPosition(), new_pos;
+				auto he_me_len = he_me.Unitize();
+				auto walk_distance = get_FallbackDistance(info) - he_me_len;
+				new_pos = he_me * walk_distance + a->GetPosition();
+
+				if (check_collisions(a, &a->data.location, &new_pos)) {
+
+					if (change) {
+
+#ifdef DEBUG
+						draw_line<ORA, 2000>(a->GetPosition(), 2);
+						draw_line<GRN, 2000>(a->GetPosition(), new_pos);
+#endif  // DEBUG
+
+						interruptattack(a);
+						buff_speed<200>(a);
+					}
+					return true;
+				} else {
+#ifdef DEBUG
+					//draw_line<RED, 2000>(a->GetPosition(), new_pos);
+#endif  // DEBUG
+				}
 			}
 
-			return 0;
+			return false;
+		}
+
+		uint32_t should(RE::Character* me)
+		{
+			if (is_powerattacking(me) && !is_juststarted_attacking(me))
+				return false;
+
+			AttackInfo info;
+			if (!isInDanger(me, &info))
+				return false;
+
+			auto he = me->currentCombatTarget.get().get();
+			if (!he)
+				return false;
+
+			return should_alwaysDanger<true>(me, he, info);
 		}
 	}
 
@@ -406,6 +544,27 @@ namespace Movement
 				*(path + 0x14) = 5;
 			}
 		}
+
+		void fix_radiuses(RE::Actor* me, RE::Actor* he, float* inner_R, float* outer_R)
+		{
+			if (!want_attack_light(me, he)) {
+				*inner_R = (*inner_R + 50.0f) * 2.0f;
+				*outer_R = (*outer_R + 50.0f) * 2.0f;
+			} else {
+				//*inner_R = fmaxf(*inner_R, 50.0f);
+				//*outer_R = fmaxf(*outer_R, 200.0f);
+			}
+		}
+
+		bool sub_1407D62A0(void* a1)
+		{
+			return _generic_foo<46699, bool, void*>(a1);  // SkyrimSE.exe+7D62A0
+		}
+
+		bool should_fallback_to_ranged(void* a1)
+		{
+			return sub_1407D62A0(a1) && get_dist2(CombatAI__get_he(), CombatAI__get_me()) > 500.0f * 500.0f;
+		}
 	}
 
 	bool CombatBehaviorContextCloseMovement__is_outofrange(void* context)
@@ -417,12 +576,12 @@ namespace Movement
 		if (!CombatBehaviorContextCloseMovement__is_outofrange(context))
 			return false;
 
-		return has_enoughStamina(CombatAI__get_me());
+		return has_enoughStamina(CombatAI__get_me()) && get_dist2(CombatAI__get_me(), CombatAI__get_he()) > 200.0f * 200.0f;
 	}
 
 	uint32_t low_stamina(RE::Character* me)
 	{
-		auto ans = !has_stamina(me);
+		auto ans = !has_enoughStamina(me);
 
 #ifdef DEBUG
 		if (ans)
@@ -445,35 +604,110 @@ namespace Movement
 		return ans;
 	}
 
-	uint32_t is_wantattack(RE::Character* me)
-	{
-		auto ans = has_enoughStamina(me);
-
-#ifdef DEBUG
-		if (ans)
-			draw_line<YEL, 1000>(me->GetPosition(), 2);
-#endif  // DEBUG
-
-		return ans;
-	}
-
 	uint32_t should_surround(RE::Character*)
 	{
 		return true;
 	}
 }
 
-float get_Block_prop(RE::Actor* me, RE::Actor* )
+namespace Attack
 {
-	if (!has_stamina(me))
-		return 0.0f;
+	uint32_t dontwant(RE::Character* me) {
+		auto he = CombatAI__get_he();
 
-	Movement::AttackInfo info;
-	if (!isInDanger(me, &info))
-		return 0.0f;
+		if (!has_stamina(me))
+			return true;
 
-	if (chose_moving_direction(&info, me, true) == Movement::CircleDirestions::None)
-		return 1.0f;
-	
-	return 0.0f;
+		if (is_staggered(he) || is_AttackEnded(he))
+			return false;
+
+		if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
+			return true;
+
+		if (Movement::is_indanger(me))
+			return true;
+
+		if (!has_enoughStamina(me) && has_enough_hp(he))
+			return true;
+
+		if (Character__is_moving_from(he, &me->data.location)) {
+			auto dist = get_dist2(me, he);
+			if (dist > 100.0f * 100.0f)
+				return true;
+		}
+
+		return false;
+	}
+
+	float get_offensive(RE::Actor* a) {
+		return a->GetActorValue(RE::ActorValue::kStamina) + a->GetActorValue(RE::ActorValue::kHealth);
+	}
+
+	float get_thisattack_chance(RE::Actor* me, RE::Actor* he, RE::BGSAttackData* adata)
+	{
+		float ans = adata->data.attackChance;
+		if (adata->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack)) {
+			if (get_offensive(me) < get_offensive(he))
+				ans = 0.0f;
+
+			if (is_staggered(he))
+				ans = 0.0f;
+
+			if (!has_enoughStamina(me))
+				ans = 0.0f;
+		}
+
+		if (adata->data.flags.any(RE::AttackData::AttackFlag::kBashAttack)) {
+			if (is_staggered(he))
+				ans = 0.0f;
+		}
+
+		return ans;
+	}
+}
+
+namespace Block
+{
+	uint32_t wantbash(RE::Character* me)
+	{
+		auto he = CombatAI__get_he();
+		
+		if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
+			return false;
+
+		if (Character__is_moving_from(he, &me->data.location)) {
+			auto dist = get_dist2(me, he);
+			if (dist > 100.0f * 100.0f)
+				return false;
+		}
+
+		return (has_enoughStamina(me) && is_powerattacking(he)) || (has_manyStamina(me) && !is_attacking(he));
+	}
+
+	uint32_t wantblock(RE::Character* me)
+	{
+		if (!has_stamina(me))
+			return false;
+
+		auto he = me->currentCombatTarget.get().get();
+		if (!he)
+			return false;
+
+		Movement::AttackInfo info;
+		if (!Movement::isInDanger(me, &info))
+			return false;
+
+		if (Movement::Circle::should_danger_alwaysDanger(me, he, info) || Movement::Fallback::should_alwaysDanger(me, he, info))
+			return false;
+		
+		return true;
+	}
+
+	float get_BashAfterBlock_prop(RE::Actor* me, RE::Actor*)
+	{
+		if (has_manyStamina(me))
+			return 1.0f;
+		else
+			return 0.0f;
+	}
 }

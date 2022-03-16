@@ -7,12 +7,12 @@ public:
 	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextCloseMovement_;
 
 	void* destroy(char need_freeself) override;
-	void pop(AI_Tree_Control* control) override;
-	void on_childfailed(AI_Tree_Control* control) override;
-	void on_interrupted(AI_Tree_Control* control) override;
-	void* SaveGame(AI_Tree_Control* control, RE::BGSSaveGameBuffer* buffer) override;
-	void* LoadGame(AI_Tree_Control* control, RE::BGSLoadGameBuffer* buffer) override;
-	bool __unk_8(AI_Tree_Control* control) override;
+	void pop(CombatBehaviorTreeControl* control) override;
+	void on_childfailed(CombatBehaviorTreeControl* control) override;
+	void on_interrupted(CombatBehaviorTreeControl* control) override;
+	void* SaveGame(CombatBehaviorTreeControl* control, RE::BGSSaveGameBuffer* buffer) override;
+	void* LoadGame(CombatBehaviorTreeControl* control, RE::BGSLoadGameBuffer* buffer) override;
+	bool __unk_8(CombatBehaviorTreeControl* control) override;
 	RE::BSFixedString* __unk_9() override;
 };
 static_assert(sizeof(CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextCloseMovement_) == 0x28);
@@ -23,7 +23,7 @@ public:
 	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNode_CombatBehaviorContextCloseMovement_;
 
 	void* destroy(char need_freeself) override;
-	AI_Tree_Control* act(AI_Tree_Control* control) override;
+	CombatBehaviorTreeControl* act(CombatBehaviorTreeControl* control) override;
 
 	static CombatBehaviorTreeCreateContextNode_CombatBehaviorContextCloseMovement_* createnew();
 };

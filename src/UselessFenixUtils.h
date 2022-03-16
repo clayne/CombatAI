@@ -89,8 +89,13 @@ namespace Utils
 	{
 		float alpha;
 		operator float() const { return alpha; }
-		PolarAngle(float x = 0.0f) :
-			alpha(x){};
+		PolarAngle(float x = 0.0f) : alpha(x)
+		{
+			while (alpha > 360.0f)
+				alpha -= 360.0f;
+			while (alpha < 0.0f)
+				alpha += 360.0f;
+		}
 		PolarAngle(const RE::NiPoint3& p) {
 			const float y = p.y;
 			if (y == 0.0) {
@@ -130,11 +135,9 @@ namespace Utils
 			beta = beta.sub(alpha);
 			return gamma >= beta;
 		}
-		static float dist(float r, PolarAngle alpha, PolarAngle beta)
+		static float dist(float r, PolarAngle alpha)
 		{
-			//logger::info("dist: r={}, alpha={}, beta={}", r, alpha, beta);
-			auto ans = r * (beta - alpha) / 180.0f * PI;
-			//logger::info("ans={}", ans);
+			auto ans = r * (alpha) / 180.0f * PI;
 			return ans;
 		}
 	};
@@ -143,3 +146,5 @@ namespace Utils
 void NiMemFree_14134A498(void* a1, uint64_t a2);
 RE::Character* CombatAI__get_he();
 RE::Character* CombatAI__get_me();
+RE::Modifiers* ActorValueStorage__get_modifiers(void* av_storage, char type);
+float get_total_av(RE::Actor* a, RE::ActorValue av);

@@ -118,6 +118,7 @@ namespace DrawDebug
 		static constexpr glm::vec4 GRN = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 		static constexpr glm::vec4 BLU = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 		static constexpr glm::vec4 YEL = glm::vec4(1.0f, 1.0f, 0.2f, 1.0f);
+		static constexpr glm::vec4 ORA = glm::vec4(1.0f, 0.4f, 0.4f, 1.0f);
 	}
 
 	template <glm::vec4 Color = Colors::RED, int time = 3000>
@@ -137,6 +138,15 @@ namespace DrawDebug
 		glm::vec3 to(_to.x, _to.y, _to.z);
 		DebugAPI::DrawLineForMS(from, to, time, Color, size);
 	}
+
+	template <glm::vec4 color = Colors::RED, int time = 1000, float size = 5.0f>
+	void draw_circleZ(const RE::NiPoint3& _pos, float r)
+	{
+		glm::vec3 pos(_pos.x, _pos.y, _pos.z);
+		glm::vec3 rotation(0.0f, 0.0f, 0.0f);
+		DebugAPI::DrawCircle(pos, r, rotation, time, color, size);
+	}
 }
 using namespace DrawDebug::Colors;
 using DrawDebug::draw_line;
+using DrawDebug::draw_circleZ;
