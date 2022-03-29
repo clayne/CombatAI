@@ -63,7 +63,6 @@ static_assert(sizeof(CombatBehaviorTreeNode) == 0x28);
 	class CombatBehaviorTreeNodeObjectBase_##T##_ : public CombatBehaviorTreeNode             \
 	{                                                                                         \
 	public:                                                                                   \
-		inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeNodeObjectBase_##T##_; \
                                                                                               \
 		void* destroy(char need_freeself) override;                                            \
 		void pop(CombatBehaviorTreeControl* control) override;                                          \
@@ -80,7 +79,6 @@ static_assert(sizeof(CombatBehaviorTreeNode) == 0x28);
 	class CombatBehaviorTreeNodeObject_##T##_ : public CombatBehaviorTreeNodeObjectBase_##T##_ \
 	{                                                                                          \
 	public:                                                                                    \
-		inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeNodeObject_##T##_;      \
                                                                                                \
 		void* destroy(char need_freeself) override;                                             \
 		CombatBehaviorTreeControl* act(CombatBehaviorTreeControl* control) override;                               \
@@ -142,8 +140,7 @@ using NodeConditionalChildSelector = CombatBehaviorTreeNodeObject_CombatBehavior
 class CombatBehaviorTreeConditionalNode_CombatBehaviorExpression_CombatBehaviorFunc1_bool___float__CombatBehaviorExpression_CombatBehaviorFunc2_float___Actor_Actor__CombatBehaviorTree__CombatBehaviorAttacker_CombatBehaviorTree__CombatBehaviorTarget_____ : public CombatBehaviorTreeNode
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeConditionalNode_CombatBehaviorExpression_CombatBehaviorFunc1_bool___float__CombatBehaviorExpression_CombatBehaviorFunc2_float___Actor_Actor__CombatBehaviorTree__CombatBehaviorAttacker_CombatBehaviorTree__CombatBehaviorTarget_____;
-
+	
 	void *destroy(char need_freeself) override;
 	CombatBehaviorTreeControl* act(CombatBehaviorTreeControl* control) override;
 	bool __unk_8(CombatBehaviorTreeControl* control) override;
@@ -165,7 +162,6 @@ static_assert(sizeof(CombatBehaviorTreeConditionalNode_CombatBehaviorExpression_
 class CombatBehaviorTreeValueNode_unsignedint_ : public CombatBehaviorTreeWrapperNode  // 1416941F0
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNode_unsignedint_;
 
 	void* destroy(char need_freeself) override;
 	RE::BSFixedString* __unk_9() override;
@@ -176,7 +172,6 @@ static_assert(sizeof(CombatBehaviorTreeValueNode_unsignedint_) == 0x30);
 class CombatBehaviorTreeValueNode_float_ : public CombatBehaviorTreeWrapperNode  // 141696710
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNode_float_;
 
 	void* destroy(char need_freeself) override;
 	RE::BSFixedString* __unk_9() override;
@@ -189,7 +184,6 @@ static_assert(sizeof(CombatBehaviorTreeValueNode_float_) == 0x30);
 class CombatBehaviorTreeValueNodeT_unsignedint_int_ : public CombatBehaviorTreeValueNode_unsignedint_
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNodeT_unsignedint_int_;
 
 	void* destroy(char need_freeself) override;
 	uint32_t __unk10(void) override;
@@ -203,8 +197,7 @@ static_assert(sizeof(CombatBehaviorTreeValueNodeT_unsignedint_int_) == 0x38);
 class CombatBehaviorTreeValueNodeT_unsignedint_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorContextCloseMovement_bool_CombatBehaviorContextCloseMovement____void____ : public CombatBehaviorTreeValueNode_unsignedint_
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNodeT_unsignedint_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorContextCloseMovement_bool_CombatBehaviorContextCloseMovement____void____;
-
+	
 	void* destroy(char need_freeself) override;
 	uint32_t __unk10(void) override;
 
@@ -215,8 +208,7 @@ static_assert(sizeof(CombatBehaviorTreeValueNodeT_unsignedint_CombatBehaviorExpr
 class CombatBehaviorTreeValueNodeT_float_CombatBehaviorExpression_CombatBehaviorFunc1_float___Actor__CombatBehaviorTree__CombatBehaviorAttacker___ : public CombatBehaviorTreeValueNode_float_  // 141696778
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNodeT_float_CombatBehaviorExpression_CombatBehaviorFunc1_float___Actor__CombatBehaviorTree__CombatBehaviorAttacker___;
-
+	
 	void* destroy(char need_freeself) override;
 	float __unk10(void) override;
 
@@ -229,8 +221,7 @@ static_assert(sizeof(CombatBehaviorTreeValueNodeT_float_CombatBehaviorExpression
 class CombatBehaviorTreeValueNodeT_unsignedint_CombatBehaviorExpression_CombatBehaviorMemberFunc_Actor_bool_Actor____void____ : public CombatBehaviorTreeValueNode_unsignedint_  // 14169CDC8
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeValueNodeT_unsignedint_CombatBehaviorExpression_CombatBehaviorMemberFunc_Actor_bool_Actor____void____;
-
+	
 	void* destroy(char need_freeself) override;
 	uint32_t __unk10(void) override;
 
@@ -246,8 +237,7 @@ DECLARE_CombatBehaviorTreeNodeObjectBase(CombatBehaviorIdle);  // 14162FCE8
 class CombatBehaviorTreeNodeObject1_CombatBehaviorIdle_float_ : public CombatBehaviorTreeNodeObjectBase_CombatBehaviorIdle_  // 14162FD40
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeNodeObject1_CombatBehaviorIdle_float_;
-
+	
 	// override (CombatBehaviorTreeNodeObjectBase_CombatBehaviorIdle_)
 	void* destroy(char need_freeself) override;
 	CombatBehaviorTreeControl* act(CombatBehaviorTreeControl* control) override;

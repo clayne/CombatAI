@@ -56,15 +56,15 @@ void apply_Movement()
 		//	REL::safe_write(funcOffset.address() + 0x3AD, data, 5);
 		//}
 
-		// SkyrimSE.exe+7D750B
-		// not check heading1
-		// nop * 7
-		writebytes<46712, 0x13B>("\x0F\x1F\x80\x00\x00\x00\x00");
+		// not check headings
+		// SkyrimSE.exe+7D74FC: jmp SkyrimSE.exe+7D7518
+		writebytes<46712, 0x12c>("\xeb\x1a");
+		// SkyrimSE.exe+7D753C: jmp SkyrimSE.exe+7D7558
+		writebytes<46712, 0x16c>("\xeb\x1a");
 
-		// SkyrimSE.exe+7D7512
-		// not check heading2
-		// nop * 6
-		writebytes<46712, 0x142>("\x66\x0F\x1F\x44\x00\x00");
+		// not check is_moving_from
+		// SkyrimSE.exe+7D7518: jmp SkyrimSE.exe+7D752C
+		writebytes<46712, 0x148>("\xeb\x12");
 	}
 
 	// Circle

@@ -89,7 +89,7 @@ void cast_spell(RE::Actor* victim, RE::Actor* attacker, RE::SpellItem* spell)
 {
 	RE::MagicCaster* caster = attacker->GetMagicCaster(RE::MagicSystem::CastingSource::kInstant);
 	if (caster && spell) {
-		caster->InstantCast(spell, false, victim, 1.0f, false, 0.0f, attacker);
+		caster->CastSpellImmediate(spell, false, victim, 1.0f, false, 0.0f, attacker);
 	}
 }
 

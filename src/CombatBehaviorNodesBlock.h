@@ -13,8 +13,7 @@ using NodeBlockBlockAttack = CombatBehaviorTreeNodeObject_CombatBehaviorBlockAtt
 class CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextBlock_ : public CombatBehaviorTreeNode  // 141694C20
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextBlock_;
-
+	
 	void* destroy(char need_freeself) override;
 	void pop(CombatBehaviorTreeControl* control) override;
 	void* SaveGame(CombatBehaviorTreeControl* control, RE::BGSSaveGameBuffer* buffer) override;
@@ -31,8 +30,7 @@ static_assert(sizeof(CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorConte
 class CombatBehaviorTreeCreateContextNode2_CombatBehaviorContextBlock_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorEquipContext_NiPointer_CombatInventoryItem_const_CombatBehaviorEquipContext____void____CombatBehaviorContextMelee__ATTACK_TYPE_ : public CombatBehaviorTreeCreateContextNodeBase_CombatBehaviorContextBlock_
 {
 public:
-	inline static constexpr auto RTTI = RE::RTTI_CombatBehaviorTreeCreateContextNode2_CombatBehaviorContextBlock_CombatBehaviorExpression_CombatBehaviorMemberFunc_CombatBehaviorEquipContext_NiPointer_CombatInventoryItem_const_CombatBehaviorEquipContext____void____CombatBehaviorContextMelee__ATTACK_TYPE_;
-
+	
 	void* destroy(char need_freeself) override;
 	CombatBehaviorTreeControl* act(CombatBehaviorTreeControl* control) override;
 

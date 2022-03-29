@@ -3,7 +3,7 @@
 #include "RE/Skyrim.h"
 #include "SKSE/SKSE.h"
 
-#define DEBUG
+//#define DEBUG
 
 #pragma warning(push)
 #ifdef DEBUG

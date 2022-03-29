@@ -12,7 +12,7 @@ bool has_manyStamina(RE::Actor* a)
 {
 	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
 	auto total = get_total_av(a, RE::ActorValue::kStamina);
-	return total >= 150.0f && total * 0.75 <= cur;
+	return total >= 100.0f && total * 0.5 <= cur;
 }
 
 bool has_enoughStamina(RE::Actor* a)
@@ -197,15 +197,19 @@ namespace Movement
 				return;
 			}
 			buffed.insert(a->formID);
-			damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, amount, nullptr);
+			//damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, amount, nullptr);
 			//Actor__SetIsGhost_1405D25E0(a, true);
+			a->SetGraphVariableBool("bInIframe", true);
+			a->SetGraphVariableBool("bIframeActive", true);
 
 			buffed_mutex.unlock();
 			std::this_thread::sleep_for(std::chrono::milliseconds(time));
 			buffed_mutex.lock();
 
 			//Actor__SetIsGhost_1405D25E0(a, false);
-			damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, -amount, nullptr);
+			a->SetGraphVariableBool("bInIframe", false);
+			a->SetGraphVariableBool("bIframeActive", false);
+			//damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, -amount, nullptr);
 			buffed.erase(a->formID);
 			buffed_mutex.unlock();
 		});
@@ -266,7 +270,7 @@ namespace Movement
 	bool isInDanger(RE::Actor* me, AttackInfo* info = nullptr)
 	{
 		auto he = me->currentCombatTarget.get().get();
-		if (!he || (is_blocking(he) || !is_attacking(he)))
+		if (!he)
 			return false;
 
 		auto R = get_combat_reach(he);
@@ -284,6 +288,9 @@ namespace Movement
 			info->me = abs(angle);
 			info->attackAngle = attackAngle;
 		}
+
+		if (is_blocking(he) || !is_attacking(he))
+			return false;
 
 		auto attackState = he->GetAttackState();
 		if (attackState != RE::ATTACK_STATE_ENUM::kSwing && attackState != RE::ATTACK_STATE_ENUM::kDraw)
@@ -395,7 +402,8 @@ namespace Movement
 			if (dir == CircleDirestions::Left || dir == CircleDirestions::Right) {
 				if (change) {
 					interruptattack(me);
-					buff_speed<300, 500.0f>(me);
+					buff_speed<300>(me);
+					me->NotifyAnimationGraph(dir == CircleDirestions::Left ? "TKDodgeRight" : "TKDodgeLeft");
 
 #ifdef DEBUG
 					draw_line<BLU, 1000>(me->GetPosition(), 3);
@@ -496,6 +504,7 @@ namespace Movement
 
 						interruptattack(a);
 						buff_speed<200>(a);
+						a->NotifyAnimationGraph("TKDodgeBack");
 					}
 					return true;
 				} else {
@@ -597,7 +606,9 @@ namespace Movement
 
 #ifdef DEBUG
 		if (ans)
-			draw_line<RED, 1000>(me->GetPosition(), 1);
+			draw_line<RED, 2000>(me->GetPosition(), 1);
+		else
+			draw_line<GRN, 2000>(me->GetPosition(), 1);
 #endif  // DEBUG
 
 
@@ -613,6 +624,7 @@ namespace Movement
 namespace Attack
 {
 	uint32_t dontwant(RE::Character* me) {
+		
 		auto he = CombatAI__get_he();
 
 		if (!has_stamina(me))
@@ -653,7 +665,7 @@ namespace Attack
 			if (is_staggered(he))
 				ans = 0.0f;
 
-			if (!has_enoughStamina(me))
+			if (!has_manyStamina(me))
 				ans = 0.0f;
 		}
 
