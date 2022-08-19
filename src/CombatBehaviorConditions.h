@@ -7,6 +7,8 @@ namespace Movement
 		float get_FallbackDistance(RE::Character* me);
 		float get_FallbackSpeed(RE::Character*);
 		uint32_t should(RE::Character*);
+		uint32_t should_normal(RE::Character* me);
+		float get_FallbackWaitTime(RE::Character*);
 	}
 
 	namespace Circle
@@ -24,7 +26,12 @@ namespace Movement
 		bool should_fallback_to_ranged(void* a1);
 	}
 
-	uint32_t should_surround(RE::Character*);
+	namespace Surround
+	{
+		void hooked_interrupting(char** context);
+		uint32_t should(RE::Actor*);
+	}
+
 	uint32_t low_stamina(RE::Character*);
 	uint32_t is_indanger(RE::Character*);
 	bool is_outofrange(void*);
@@ -34,6 +41,7 @@ namespace Attack
 {
 	uint32_t dontwant(RE::Character* a);
 	float get_thisattack_chance(RE::Actor* me, RE::Actor* he, RE::BGSAttackData* adata);
+	bool should_interrupt();
 }
 
 namespace Block

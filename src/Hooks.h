@@ -34,4 +34,17 @@ private:
 	static inline REL::Relocation<decltype(set_two_radiuses)> _set_two_radiuses;
 };
 
+class SurroundHook
+{
+public:
+	static void Hook()
+	{
+		_update = SKSE::GetTrampoline().write_branch<5>(REL::ID(529971).address() + 0x9, update);  // SkyrimSE.exe+7DFF99
+	}
+
+private:
+	static void update(char** context);
+	static inline REL::Relocation<decltype(update)> _update;
+};
+
 void apply_hooks();

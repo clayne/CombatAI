@@ -30,6 +30,13 @@ void AdvanceHook::set_two_radiuses(RE::Actor* me, RE::Actor* he, float* inner_R,
 	Movement::Advance::fix_radiuses(me, he, inner_R, outer_R);
 }
 
+void SurroundHook::update(char** context)
+{
+	Movement::Surround::hooked_interrupting(context);
+
+	_update(context);
+}
+
 void apply_Movement()
 {
 	// CloseMovement_ctor: SkyrimSE.exe+7D97D0
@@ -42,19 +49,22 @@ void apply_Movement()
 		// get_FallbackDistance: SkyrimSE.exe+844FE0
 		apply_func<49718>(std::uintptr_t(Fallback::get_FallbackDistance));
 
-		// call Character__get_FallbackSpeed: SkyrimSE.exe+7D7639
-		//apply_call<46712, 0x269>(std::uintptr_t(Fallback::get_FallbackSpeed));
+		// get_FallbackWaitTime: SkyrimSE.exe+7D782A
+		SKSE::GetTrampoline().write_call<5>(REL::ID(46713).address() + 0xea, std::uintptr_t(Fallback::get_FallbackWaitTime));
 
-		//{  // SkyrimSE.exe+7D7654: set max speed
-		//	constexpr REL::ID funcOffset(46712);
-		//	const char data[] = "\x41\xB9\x04\x00\x00\x00";  // mov     r9d, 4
-		//	REL::safe_write(funcOffset.address() + 0x284, data, 6);
-		//}
-		//{  // SkyrimSE.exe+7D85AD: set max speed
-		//	constexpr REL::ID funcOffset(46720);
-		//	const char data[] = "\xBA\x04\x00\x00\x00";  // mov     edx, 4
-		//	REL::safe_write(funcOffset.address() + 0x3AD, data, 5);
-		//}
+		// call Character__get_FallbackSpeed: SkyrimSE.exe+7D7639
+		apply_call<46712, 0x269>(std::uintptr_t(Fallback::get_FallbackSpeed));
+
+		{  // SkyrimSE.exe+7D7654: set max speed
+			constexpr REL::ID funcOffset(46712);
+			const char data[] = "\x41\xB9\x04\x00\x00\x00";  // mov     r9d, 4
+			REL::safe_write(funcOffset.address() + 0x284, data, 6);
+		}
+		{  // SkyrimSE.exe+7D85AD: set max speed
+			constexpr REL::ID funcOffset(46720);
+			const char data[] = "\xBA\x04\x00\x00\x00";  // mov     edx, 4
+			REL::safe_write(funcOffset.address() + 0x3AD, data, 5);
+		}
 
 		// not check headings
 		// SkyrimSE.exe+7D74FC: jmp SkyrimSE.exe+7D7518
@@ -65,6 +75,10 @@ void apply_Movement()
 		// not check is_moving_from
 		// SkyrimSE.exe+7D7518: jmp SkyrimSE.exe+7D752C
 		writebytes<46712, 0x148>("\xeb\x12");
+
+		// not check sub_1405E3250
+		// SkyrimSE.exe+7D752C: jmp SkyrimSE.exe+7D753C
+		writebytes<46712, 0x15c>("\xeb\x08");
 	}
 
 	// Circle
@@ -85,12 +99,12 @@ void apply_Movement()
 		// SkyrimSE.exe+7D85AD
 		// set max speed1
 		// mov edx, 4
-		//writebytes<46720, 0x3AD>("\xBA\x04\x00\x00\x00");
+		writebytes<46720, 0x3AD>("\xBA\x04\x00\x00\x00");
 
 		// SkyrimSE.exe+7D877D
 		// set max speed2
 		// mov r9d, 4
-		//writebytes<46720, 0x57D>("\x41\xB9\x04\x00\x00\x00");
+		writebytes<46720, 0x57D>("\x41\xB9\x04\x00\x00\x00");
 
 		// SkyrimSE.exe+7D84AA
 		// not check fCombatCircleAngleMax
@@ -99,21 +113,75 @@ void apply_Movement()
 
 		// SkyrimSE.exe+7D8566
 		// not check heading1
-		// nop * 7
+		// nop * (7 + 6)
 		writebytes<46720, 0x366>("\x0F\x1F\x80\x00\x00\x00\x00");
-
-		// SkyrimSE.exe+7D856D
-		// not check heading2
-		// nop * 6
 		writebytes<46720, 0x36D>("\x66\x0F\x1F\x44\x00\x00");
 
-		// SkyrimSE.exe+7D8415
-		// no scale
-		// nop * 2
-		writebytes<46720, 0x215>("\xEB");
+		// SkyrimSE.exe+7D8376
+		// not check sub_1405E3250
+		// nop * 8
+		writebytes<46720, 0x176>("\x0F\x1F\x84\x00\x00\x00\x00\x00");
+		writebytes<46720, 0x182>("\x0F\x1F\x84\x00\x00\x00\x00\x00");
+
+		{
+			// smaller circle min radius
+			
+			// SkyrimSE.exe+7D83E8
+			uintptr_t ret_addr = REL::ID(46720).address() + 0x1e8;
+
+			struct Code : Xbyak::CodeGenerator
+			{
+				Code(uintptr_t ret_addr)
+				{
+					movss(xmm2, dword[rcx + 0x1A0]);
+					mov(eax, 0x3e99999a);  // 0.3
+					movd(xmm3, eax);
+					mulss(xmm2, xmm3);
+					
+					mov(rax, ret_addr);
+					jmp(rax);
+				}
+			} xbyakCode{ ret_addr };
+			add_trampoline<5, 46720, 0x1e0>(&xbyakCode);  // SkyrimSE.exe+7D83E0
+		}
 	}
 
 	AdvanceHook::Hook();
+	SurroundHook::Hook();
+}
+
+void apply_Attacks() {
+	// SkyrimSE.exe+80DBEC
+	uintptr_t ret_addr_nofail = REL::ID(48148).address() + 0xec;
+
+	// SkyrimSE.exe+80DBBB
+	uintptr_t ret_addr_fail = REL::ID(48148).address() + 0xbb;
+
+	struct Code : Xbyak::CodeGenerator
+	{
+		Code(uintptr_t ret_addr_fail, uintptr_t ret_addr_nofail, uintptr_t should_interrupt)
+		{
+			Xbyak::Label L__fail;
+
+			test(eax, 0x0FFFFFFFB);
+			jz(L__fail);
+
+			sub(rsp, 0x20);
+			mov(rax, should_interrupt);
+			call(rax);
+			add(rsp, 0x20);
+			test(al, al);
+			jne(L__fail);
+
+			mov(rax, ret_addr_nofail);
+			jmp(rax);
+
+			L(L__fail);
+			mov(rax, ret_addr_fail);
+			jmp(rax);
+		}
+	} xbyakCode{ ret_addr_fail, ret_addr_nofail, uintptr_t(Attack::should_interrupt) };
+	add_trampoline<5, 48148, 0xb4>(&xbyakCode);  // SkyrimSE.exe+80DBB4
 }
 
 void apply_hooks()
@@ -132,6 +200,8 @@ void apply_hooks()
 	SKSE::GetTrampoline().write_call<5>(REL::ID(48139).address() + 0x2ae, std::uintptr_t(Attack::get_thisattack_chance));
 
 	apply_Movement();
+
+	apply_Attacks();
 
 	apply_inlined<46640, 0x86, 0x60, 4>();    // CombatBehaviorIdle
 	apply_inlined<46640, 0x24C, 0x21A, 5>();  // CombatBehaviorContextBlock

@@ -5,6 +5,38 @@
 #include <thread>
 #include <mutex>
 #include "CombatBehaviorConditions.h"
+#include "Settings.h"
+
+#define TYPE_SPEED 1
+#define TYPE_DODGE 2
+
+#define TYPE_GHOST 1
+#define TYPE_HITFRAME 2
+
+#define TYPE_NORMAL 1
+#define TYPE_FALSE 2
+#define TYPE_TRUE 3
+
+//#define CUSTOM_TYPES
+
+#ifdef CUSTOM_TYPES
+#	define DODGE_TYPE TYPE_SPEED
+#	define FALLBACK_TYPE TYPE_FALSE
+#	define CIRCLE_TYPE TYPE_TRUE
+#	define ATTACK_TYPE TYPE_TRUE
+#	define BLOCK_TYPE TYPE_FALSE
+#	define DODGE_GHOST_TYPE TYPE_HITFRAME
+#else
+#	define DODGE_TYPE TYPE_DODGE
+#	define FALLBACK_TYPE TYPE_NORMAL
+#	define CIRCLE_TYPE TYPE_NORMAL
+#	define ATTACK_TYPE TYPE_NORMAL
+#	define BLOCK_TYPE TYPE_NORMAL
+#	define DODGE_GHOST_TYPE TYPE_GHOST
+#endif
+
+#define DODGE_ID 1
+#define DODGE_SPEED 1.647f
 
 using PA = Utils::PolarAngle;
 
@@ -27,6 +59,10 @@ bool is_powerattacking(RE::Actor* a)
 	return _generic_foo<37639, bool, RE::Actor*>(a);
 }
 
+bool is_staying(RE::Actor* a) {
+	return !a->actorState1.running && !a->actorState1.walking && !a->actorState1.sprinting;
+}
+
 bool has_stamina(RE::Actor* a)
 {
 	auto cur = a->GetActorValue(RE::ActorValue::kStamina);
@@ -47,6 +83,18 @@ bool check_collisions(RE::Actor* a, RE::NiPoint3* a_pos, RE::NiPoint3* a_new_pos
 bool is_blocking(RE::Actor* a)
 {
 	return _generic_foo<36927, bool, RE::Actor*>(a);
+}
+
+bool is_bashing(RE::Actor* a)
+{
+	if (a->actorState1.meleeAttackState == RE::ATTACK_STATE_ENUM::kNone)
+		return false;
+
+	auto adata = Utils::get_attackData(a);
+	if (!adata)
+		return false;
+
+	return adata->data.flags.any(RE::AttackData::AttackFlag::kBashAttack);
 }
 
 bool is_attacking(RE::Actor* a)
@@ -83,7 +131,7 @@ static float get_angle_he_me(RE::Actor* me, RE::Actor* he, RE::BGSAttackData* at
 	return angle;
 }
 
-static void interruptattack(RE::Actor* me)
+void interruptattack(RE::Actor* me)
 {
 	me->NotifyAnimationGraph("attackStop");
 	me->NotifyAnimationGraph("blockStop");
@@ -184,32 +232,93 @@ namespace Movement
 		bool reflected;
 	};
 
+	namespace Dodging
+	{
+		template <float amount>
+		void immune_start(RE::Actor* a)
+		{
+			if (*Settings::DodgingModIndex == -1) {
+				damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, amount, nullptr);
+				Actor__SetIsGhost_1405D25E0(a, true);
+			}
+			if (*Settings::DodgingModIndex == 0) {
+				a->SetGraphVariableBool("bInIframe", true);
+				a->SetGraphVariableBool("bIframeActive", true);
+			}
+			if (*Settings::DodgingModIndex == 1) {
+				Actor__SetIsGhost_1405D25E0(a, true);
+			}
+		}
+
+		template <float amount>
+		void immune_end(RE::Actor* a)
+		{
+			if (*Settings::DodgingModIndex == -1) {
+				damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, -amount, nullptr);
+				Actor__SetIsGhost_1405D25E0(a, false);
+			}
+			if (*Settings::DodgingModIndex == 0) {
+				a->SetGraphVariableBool("bInIframe", false);
+				a->SetGraphVariableBool("bIframeActive", false);
+			}
+			if (*Settings::DodgingModIndex == 1) {
+				Actor__SetIsGhost_1405D25E0(a, false);
+			}
+		}
+
+		void dodge_circle(RE::Actor* me, CircleDirestions dir)
+		{
+			if (*Settings::DodgingModIndex == -1) {
+				// himself
+			}
+			if (*Settings::DodgingModIndex == 0) {
+				me->NotifyAnimationGraph(dir == CircleDirestions::Left ? "TKDodgeRight" : "TKDodgeLeft");
+			}
+			if (*Settings::DodgingModIndex == 1) {
+				me->SetGraphVariableInt("DodgeID", DODGE_ID);
+				me->SetGraphVariableFloat("DodgeSpeed", DODGE_SPEED);
+				me->NotifyAnimationGraph("RollStart");
+			}
+		}
+
+		void dodge_back(RE::Actor* a)
+		{
+			if (*Settings::DodgingModIndex == -1) {
+				// himself
+			}
+			if (*Settings::DodgingModIndex == 0) {
+				a->NotifyAnimationGraph("TKDodgeBack");
+			}
+			if (*Settings::DodgingModIndex == 1) {
+				a->SetGraphVariableInt("DodgeID", DODGE_ID);
+				a->SetGraphVariableFloat("DodgeSpeed", DODGE_SPEED);
+				a->NotifyAnimationGraph("RollStart");
+			}
+		}
+	}
+
 	static std::set<uint32_t> buffed = std::set<uint32_t>();
 	std::mutex buffed_mutex;
 
-	template <int time = 100, float amount = 300.0f>
+	template <int time = 100, float amount = 500.0f>
 	void buff_speed(RE::Actor* a)
 	{
-		std::thread t([=]() {
+		std::thread t([a]() {
 			buffed_mutex.lock();
 			if (buffed.count(a->formID)) {
 				buffed_mutex.unlock();
 				return;
 			}
 			buffed.insert(a->formID);
-			//damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, amount, nullptr);
-			//Actor__SetIsGhost_1405D25E0(a, true);
-			a->SetGraphVariableBool("bInIframe", true);
-			a->SetGraphVariableBool("bIframeActive", true);
+
+			Dodging::immune_start<amount>(a);
 
 			buffed_mutex.unlock();
 			std::this_thread::sleep_for(std::chrono::milliseconds(time));
 			buffed_mutex.lock();
 
-			//Actor__SetIsGhost_1405D25E0(a, false);
-			a->SetGraphVariableBool("bInIframe", false);
-			a->SetGraphVariableBool("bIframeActive", false);
-			//damageav(a, RE::ACTOR_VALUE_MODIFIERS::kTemporary, RE::ActorValue::kSpeedMult, -amount, nullptr);
+			Dodging::immune_end<amount>(a);
+
 			buffed.erase(a->formID);
 			buffed_mutex.unlock();
 		});
@@ -356,7 +465,7 @@ namespace Movement
 			return _get_circle_angle(info.attackAngle, me_angle, dir == CircleDirestions::Right);
 		}
 
-		static CircleDirestions choose_moving_direction_circle(const AttackInfo* const info, RE::Actor* a)
+		CircleDirestions choose_moving_direction_circle(const AttackInfo* const info, RE::Actor* a)
 		{
 			auto he = a->currentCombatTarget.get().get();
 			if (!he)
@@ -376,8 +485,15 @@ namespace Movement
 			return CircleDirestions::None;
 		}
 
-		float get_CircleAngle(RE::Character* me)
+		float get_CircleAngle([[maybe_unused]] RE::Character* me)
 		{
+#if CIRCLE_TYPE == TYPE_FALSE
+			return 0.0f;
+#endif
+#if CIRCLE_TYPE == TYPE_TRUE
+			return 90.0f;
+#endif
+#if CIRCLE_TYPE == TYPE_NORMAL
 			AttackInfo info;
 			if (!isInDanger(me, &info)) {
 				bool left;
@@ -393,6 +509,7 @@ namespace Movement
 				return default_angle;
 
 			return get_CircleAngle(info, dir);
+#endif
 		}
 
 		template <bool change = false>
@@ -403,8 +520,7 @@ namespace Movement
 				if (change) {
 					interruptattack(me);
 					buff_speed<300>(me);
-					me->NotifyAnimationGraph(dir == CircleDirestions::Left ? "TKDodgeRight" : "TKDodgeLeft");
-
+					Dodging::dodge_circle(me, dir);
 #ifdef DEBUG
 					draw_line<BLU, 1000>(me->GetPosition(), 3);
 #endif  // DEBUG
@@ -417,9 +533,23 @@ namespace Movement
 			return false;
 		}
 
-		uint32_t should_danger(RE::Character* me)
+		uint32_t should_danger([[maybe_unused]] RE::Character* me)
 		{
+#if CIRCLE_TYPE == TYPE_FALSE
+			return false;
+#endif
+#if CIRCLE_TYPE == TYPE_TRUE
+			if (isInDanger(me)) {
+				interruptattack(me);
+				buff_speed<300>(me);
+			}
+			return true;
+#endif
+#if CIRCLE_TYPE == TYPE_NORMAL
 			if (is_powerattacking(me) && !is_juststarted_attacking(me))
+				return false;
+
+			if (is_bashing(me))
 				return false;
 
 			auto he = me->currentCombatTarget.get().get();
@@ -431,10 +561,18 @@ namespace Movement
 				return false;
 
 			return should_danger_alwaysDanger<true>(me, he, info);
+#endif
 		}
 
-		uint32_t should_normal(RE::Character* me)
+		uint32_t should_normal([[maybe_unused]] RE::Character* me)
 		{
+#if CIRCLE_TYPE == TYPE_FALSE
+			return false;
+#endif
+#if CIRCLE_TYPE == TYPE_TRUE
+			return true;
+#endif
+#if CIRCLE_TYPE == TYPE_NORMAL
 			auto he = me->currentCombatTarget.get().get();
 			if (!he)
 				return false;
@@ -448,11 +586,17 @@ namespace Movement
 				return true;
 
 			return false;
+#endif
 		}
 	}
 
 	namespace Fallback
 	{
+		float get_FallbackWaitTime(RE::Character*)
+		{
+			return 0.0f;
+		}
+
 		float get_FallbackDistance(const AttackInfo& info)
 		{
 			// info.r subs after
@@ -463,7 +607,7 @@ namespace Movement
 		{
 			AttackInfo info;
 			if (!isInDanger(me, &info))
-				return 0.0f;
+				return 80.0f;
 
 			return get_FallbackDistance(info);
 		}
@@ -494,17 +638,14 @@ namespace Movement
 				new_pos = he_me * walk_distance + a->GetPosition();
 
 				if (check_collisions(a, &a->data.location, &new_pos)) {
-
 					if (change) {
-
 #ifdef DEBUG
 						draw_line<ORA, 2000>(a->GetPosition(), 2);
 						draw_line<GRN, 2000>(a->GetPosition(), new_pos);
 #endif  // DEBUG
-
 						interruptattack(a);
 						buff_speed<200>(a);
-						a->NotifyAnimationGraph("TKDodgeBack");
+						Dodging::dodge_back(a);
 					}
 					return true;
 				} else {
@@ -517,9 +658,19 @@ namespace Movement
 			return false;
 		}
 
-		uint32_t should(RE::Character* me)
+		uint32_t should([[maybe_unused]] RE::Character* me)
 		{
+#if FALLBACK_TYPE == TYPE_FALSE
+			return false;
+#endif
+#if FALLBACK_TYPE == TYPE_TRUE
+			return true;
+#endif
+#if FALLBACK_TYPE == TYPE_NORMAL
 			if (is_powerattacking(me) && !is_juststarted_attacking(me))
+				return false;
+
+			if (is_bashing(me))
 				return false;
 
 			AttackInfo info;
@@ -531,6 +682,21 @@ namespace Movement
 				return false;
 
 			return should_alwaysDanger<true>(me, he, info);
+#endif
+		}
+
+		uint32_t should_normal([[maybe_unused]] RE::Character* me)
+		{
+#if FALLBACK_TYPE == TYPE_FALSE
+			return false;
+#endif
+#if FALLBACK_TYPE == TYPE_TRUE
+			return true;
+#endif
+#if FALLBACK_TYPE == TYPE_NORMAL
+			auto state = me->actorState1.meleeAttackState;
+			return state == RE::ATTACK_STATE_ENUM::kHit || state == RE::ATTACK_STATE_ENUM::kNextAttack || state == RE::ATTACK_STATE_ENUM::kSwing;
+#endif
 		}
 	}
 
@@ -615,16 +781,39 @@ namespace Movement
 		return ans;
 	}
 
-	uint32_t should_surround(RE::Character*)
+	namespace Surround
 	{
-		return true;
+		uint32_t should(RE::Actor*)
+		{
+			return true;
+		}
+
+		bool should_interrupt(RE::Actor* a)
+		{
+			return isInDanger(a);
+		}
+
+		void hooked_interrupting(char** context)
+		{
+			if (should_interrupt(CombatAI__get_me())) {
+				char* path = *context;
+				*(path + 0x14) = 5;
+			}
+		}
 	}
 }
 
 namespace Attack
 {
-	uint32_t dontwant(RE::Character* me) {
-		
+	uint32_t dontwant([[maybe_unused]] RE::Character* me)
+	{
+#if ATTACK_TYPE == TYPE_FALSE
+		return true;
+#endif
+#if ATTACK_TYPE == TYPE_TRUE
+		return false;
+#endif
+#if ATTACK_TYPE == TYPE_NORMAL
 		auto he = CombatAI__get_he();
 
 		if (!has_stamina(me))
@@ -633,7 +822,7 @@ namespace Attack
 		if (is_staggered(he) || is_AttackEnded(he))
 			return false;
 
-		if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
+		if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 30.0f)
 			return true;
 
 		if (Movement::is_indanger(me))
@@ -649,6 +838,7 @@ namespace Attack
 		}
 
 		return false;
+#endif
 	}
 
 	float get_offensive(RE::Actor* a) {
@@ -667,6 +857,10 @@ namespace Attack
 
 			if (!has_manyStamina(me))
 				ans = 0.0f;
+
+		} else {
+			if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
+				ans = 0.0f;
 		}
 
 		if (adata->data.flags.any(RE::AttackData::AttackFlag::kBashAttack)) {
@@ -676,12 +870,30 @@ namespace Attack
 
 		return ans;
 	}
+
+	bool should_interrupt() {
+		auto me = CombatAI__get_me();
+
+		if (Movement::is_indanger(me) && (!is_powerattacking(me) || is_staying(me))) {
+			interruptattack(me);
+			return true;
+		}
+
+		return false;
+	}
 }
 
 namespace Block
 {
-	uint32_t wantbash(RE::Character* me)
+	uint32_t wantbash([[maybe_unused]] RE::Character* me)
 	{
+#if BLOCK_TYPE == TYPE_FALSE
+		return false;
+#endif
+#if BLOCK_TYPE == TYPE_TRUE
+		return true;
+#endif
+#if BLOCK_TYPE == TYPE_NORMAL
 		auto he = CombatAI__get_he();
 		
 		if (is_blocking(he) && abs(get_angle_he_me(me, he, Utils::get_attackData(he))) < 60.0f)
@@ -694,10 +906,18 @@ namespace Block
 		}
 
 		return (has_enoughStamina(me) && is_powerattacking(he)) || (has_manyStamina(me) && !is_attacking(he));
+#endif
 	}
 
-	uint32_t wantblock(RE::Character* me)
+	uint32_t wantblock([[maybe_unused]] RE::Character* me)
 	{
+#if BLOCK_TYPE == TYPE_FALSE
+		return false;
+#endif
+#if BLOCK_TYPE == TYPE_TRUE
+		return true;
+#endif
+#if BLOCK_TYPE == TYPE_NORMAL
 		if (!has_stamina(me))
 			return false;
 
@@ -713,6 +933,7 @@ namespace Block
 			return false;
 		
 		return true;
+#endif
 	}
 
 	float get_BashAfterBlock_prop(RE::Actor* me, RE::Actor*)

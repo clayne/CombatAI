@@ -147,7 +147,9 @@ void CombatBehaviorTreeMelee__ctor(void* self)
 
 	AttackSelectorItems.clear();
 	extradata.func1 = Attack::dontwant;
-	AttackSelectorItems.push_back(tmp_wrap_to_valuenode_10("Idle", &extradata, NodeIdle::createnew()));
+	auto nodeIdle = NodeIdle::createnew();
+	nodeIdle->flt_28 = 1.0f;
+	AttackSelectorItems.push_back(tmp_wrap_to_valuenode_10("Idle", &extradata, nodeIdle));
 	extradata.func1 = (void*)1;
 	AttackSelectorItems.push_back(tmp_wrap_to_valuenode_1("Attack", &extradata, NodeMeleeAttack::createnew()));
 
@@ -224,7 +226,7 @@ void CombatBehaviorTreeCloseMovement__ctor(void* self)
 	MovementSelectorItems.back()->init_childrens_parents(SecondLevelItems);
 
 	SecondLevelItems.clear();
-	extradata.func1 = Movement::should_surround;
+	extradata.func1 = Movement::Surround::should;
 	SecondLevelItems.push_back(tmp_wrap_to_valuenode_10("Surround", &extradata, NodeCloseMovementSurround::createnew()));
 	extradata.func1 = (void*)1;
 	SecondLevelItems.push_back(tmp_wrap_to_valuenode_1("Idle", &extradata, NodeIdle::createnew()));
@@ -233,6 +235,8 @@ void CombatBehaviorTreeCloseMovement__ctor(void* self)
 	MovementSelectorItems.back()->init_childrens_parents(SecondLevelItems);
 
 	SecondLevelItems.clear();
+	extradata.func1 = Movement::Fallback::should_normal;
+	SecondLevelItems.push_back(tmp_wrap_to_valuenode_10("Fallback", &extradata, NodeCloseMovementFallback::createnew()));
 	extradata.func1 = Movement::Circle::should_normal;
 	SecondLevelItems.push_back(tmp_wrap_to_valuenode_10("Circle", &extradata, NodeCloseMovementCircle::createnew()));
 	extradata.func1 = Movement::Advance::should;

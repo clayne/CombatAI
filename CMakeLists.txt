@@ -82,6 +82,7 @@ set(Boost_USE_STATIC_LIBS ON)
 add_subdirectory($ENV{CommonLibSSE} $ENV{CommonLibSSE}/build)
 
 find_package(spdlog REQUIRED CONFIG)
+find_package(AutoTOML REQUIRED CONFIG)
 
 # ---- Add source files ----
 
@@ -99,6 +100,7 @@ set(headers
   src/Hooks.h
   src/DebugAPI.h
   src/Util.h
+  src/Settings.h
 )
 
 set(sources

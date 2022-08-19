@@ -21,3 +21,4 @@ namespace logger = SKSE::log;
 
 #include "Version.h"
 #include "Util.h"
+#include "AutoTOML.hpp"
